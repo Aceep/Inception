@@ -1,23 +1,59 @@
 #!/bin/sh
 
-echo "\n=============================="
-echo "=== Database configuration ==="
-echo "==============================\n"
-chown -R mysql:mysql /var/run/mysql
+echo "[DB config] Configuring MariaDB..."
 
-    echo "starting mariadb..."
-    rc-service mariadb start
-    sleep 1
-    echo "creating database: ${SQL_DATABASE}"
-    mysql -e "CREATE DATABASE IF NOT EXISTS ${SQL_DATABASE};"
-    mysql -e "CREATE USER IF NOT EXISTS '${SQL_USER}'@'%' IDENTIFIED BY '${SQL_PASSWORD}';"
-    mysql -e "GRANT ALL PRIVILEGES ON ${SQL_DATABASE}.* TO '${SQL_USER}'@'%' IDENTIFIED BY '${SQL_PASSWORD}';"
-    mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '${SQL_ROOT_PASSWORD}';"
-    sleep 1
-    # shutting down mariadb so it can be restarted using exec
-    mysqladmin -u root -p${SQL_ROOT_PASSWORD} shutdown
-    echo "database ready"
-sleep 1
-# using exec, the specified command becomes PID 1
-# runs the command without a shell. It can have advantages in term of signal handling and clean process termination
-exec mysqld --user=root
+if [ ! -d "/var/log/mysql" ]
+then
+    echo "[DB config] Creating directory for binary log files..."
+    mkdir -p /var/log/mysql
+    chown -R mysql:mysql /var/log/mysql
+fi
+
+if [ ! -d "/var/log/mysql" ]
+then
+    echo "[DB config] Creating directory for binary log files..."
+    mkdir -p /var/log/mysql
+    chown -R mysql:mysql /var/log/mysql
+fi
+if [ ! -d "/run/mysqld" ]
+then
+	echo "[DB config] Granting MariaDB daemon run permissions..."
+	mkdir -p /run/mysqld
+	chown -R mysql:mysql /run/mysqld
+fi
+
+if [ -d "/var/lib/mysql/mysql" ]
+then
+	echo "[DB config] MariaDB already configured."
+else
+	echo "[DB config] Installing MySQL Data Directory..."
+	chown -R mysql:mysql /var/lib/mysql
+	mysql_install_db --basedir=/usr --datadir=/var/lib/mysql --user=mysql --rpm > /dev/null
+	echo "[DB config] MySQL Data Directory done."
+
+	echo "[DB config] Configuring MySQL..."
+	TMP=/tmp/.tmpfile
+
+	echo "USE mysql;" > ${TMP}
+	echo "FLUSH PRIVILEGES;" >> ${TMP}
+	echo "DELETE FROM mysql.user WHERE User='';" >> ${TMP}
+	echo "DROP DATABASE IF EXISTS test;" >> ${TMP}
+	echo "DELETE FROM mysql.db WHERE Db='test';" >> ${TMP}
+	echo "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');" >> ${TMP}
+	echo "ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_ROOT_PASS}';" >> ${TMP}
+	echo "CREATE DATABASE ${WP_DB_NAME};" >> ${TMP}
+	echo "CREATE USER '${WP_DB_USER}'@'%' IDENTIFIED BY '${WP_DB_PASS}';" >> ${TMP}
+	echo "GRANT ALL PRIVILEGES ON ${WP_DB_NAME}.* TO '${WP_DB_USER}'@'%' IDENTIFIED BY '${WP_DB_PASS}';" >> ${TMP}
+	echo "FLUSH PRIVILEGES;" >> ${TMP}
+
+	# Alpine does not come with service or rc-service,
+	# so we cannot use: service mysql start
+	# We might be able to install with: apk add openrc
+	# But we can also manually start and configure the mysql daemon:
+	/usr/bin/mysqld --user=mysql --bootstrap < ${TMP}
+	rm -f ${TMP}
+	echo "[DB config] MySQL configuration done."
+fi
+
+echo "[DB config] Starting MariaDB daemon on port 3306."
+exec /usr/bin/mysqld --user=mysql --console

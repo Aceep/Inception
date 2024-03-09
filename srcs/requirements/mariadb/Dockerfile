@@ -1,21 +1,13 @@
-FROM alpine:3.18
+FROM	alpine:3.18
 
-# Update the package list and install mariadb
-RUN apk update && apk add openrc mariadb mariadb-client mysql mysql-client
+# Install MariaDB
+RUN		apk update && apk upgrade &&\
+		apk add mariadb mariadb-client
 
-# Create the directory for the mariadb database
-RUN mkdir -p /var/run/mysql
-RUN chmod 755 /var/run/mysql
-RUN chown -R mysql:mysql /var/run/mysql
+# Copy MariaDB configuration files
+COPY    ./conf/50-server.cnf /etc/my.cnf.d/50-server.cnf
+COPY	./tools/start.sh /tmp/start.sh
+RUN		chmod +x /tmp/start.sh
 
-# Copy the mariadb configuration file
-COPY conf/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
-
-# Copy the script that will start the mariadb service
-COPY ./tools/start.sh start.sh
-
-RUN chmod 755 start.sh
-
-EXPOSE 3306
-
-CMD ["sh", "start.sh"]
+# Run MariaDB configuration script as entry point
+ENTRYPOINT	[ "sh", "/tmp/start.sh" ]
