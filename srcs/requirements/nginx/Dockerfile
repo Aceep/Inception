@@ -14,7 +14,9 @@ RUN     openssl req -x509 -nodes -out /etc/nginx/ssl/inception.crt -keyout /etc/
 
 RUN		adduser -D -g 'www' www &&\
 		chown -R www:www /run/nginx/ &&\
-		chown -R www:www /var/www/html/
+		chown -R www:www /var/www/html/ &&\
+		chown -R www:www /etc/nginx/ssl/
+		
 
 EXPOSE	443
 
