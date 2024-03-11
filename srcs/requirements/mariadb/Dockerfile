@@ -1,7 +1,8 @@
 FROM alpine:3.18
 
 # Update the package list and install mariadb
-RUN apk update && apk add openrc mariadb mariadb-client mysql mysql-client
+RUN apk update && apk add openrc mariadb mariadb-client
+RUN rm -rf /var/cache/apk/*
 
 # Create the directory for the mariadb database
 RUN mkdir -p /var/run/mysql
