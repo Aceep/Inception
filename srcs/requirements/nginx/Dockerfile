@@ -11,6 +11,8 @@ RUN		apk add openssl
 		
 RUN     openssl req -x509 -nodes -out /etc/nginx/ssl/inception.crt -keyout /etc/nginx/ssl/inception.key -subj "/C=FR/ST=IDF/L=Paris/O=42/OU=42/CN=alycgaut.42.fr/UID=login"
 
+COPY 	./tools/index.html /var/www/html/index.html
+
 RUN		adduser -D -g 'www' www &&\
 		chown -R www-data:www-data /run/nginx/ &&\
 		chown -R www-data:www-data /var/www/html/ &&\
