@@ -13,7 +13,7 @@ volumes :
 	mkdir -p ~/data/mariadb ~/data/wordpress
 
 clean_volumes: down
-	docker volume rm mariadb
+	docker volume rm mariadb wordpress
 	sudo rm -rf ~/data/mariadb ~/data/wordpress
 
 clean : down

@@ -5,7 +5,7 @@ RUN		apk update && apk upgrade &&\
 		apk add mariadb mariadb-client
 
 # Copy MariaDB configuration files
-COPY    ./conf/50-server.cnf /etc/my.cnf.d/50-server.cnf
+COPY    ./conf/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
 COPY	./tools/start.sh /tmp/start.sh
 RUN		chmod +x /tmp/start.sh
 
