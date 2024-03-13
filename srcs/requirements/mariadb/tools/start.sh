@@ -1,9 +1,5 @@
 #!/bin/sh
 
-if [ ! -d /run/mysqld ]; then
-    mkdir -p /run/mysqld
-fi
-
 # Start MariaDB
 if [ -d /var/lib/mysql/mysql ]; then
     echo "[DB config] MariaDB already configured!"
