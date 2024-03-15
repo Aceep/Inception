@@ -8,16 +8,20 @@ RUN apk update && apk upgrade &&\
 			php81-pdo_pgsql php81-pdo_sqlite php81-pgsql php81-phar php81-posix php81-session \
 			php81-shmop php81-simplexml php81-soap php81-sockets php81-sodium php81-sqlite3 \
 			php81-sysvsem php81-sysvshm php81-tokenizer php81-xml php81-xmlreader php81-xmlwriter \
-			php81-xsl php81-zip php81-zlib mariadb-client
+			php81-xsl php81-zip php81-zlib mariadb-client wget
 
 
 # Bypass 'ERROR: Unable to create the PID file (/run/php/php7.4-fpm.pid).: No such file or directory (2)'
 RUN mkdir -p /var/www/html /run/php/
 
+RUN wget https://fr.wordpress.org/wordpress-6.0-fr_FR.tar.gz -P /var/www
+RUN cd /var/www && tar -xzf wordpress-6.0-fr_FR.tar.gz && rm wordpress-6.0-fr_FR.tar.gz
+RUN		chown -R root:root /var/www/wordpress
+
 COPY conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf
 RUN chmod 755 /etc/php/7.4/fpm/pool.d/www.conf
 
-COPY tools/configure-wordpress.sh /usr/local/bin/wordpress_config.sh
+COPY tools/wp.sh /usr/local/bin/wordpress_config.sh
 RUN chmod 755 /usr/local/bin/wordpress_config.sh
 
 RUN wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
