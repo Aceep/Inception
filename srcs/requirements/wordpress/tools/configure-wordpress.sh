@@ -1,35 +1,69 @@
 #!/bin/sh
 
-echo "[WP config] Configuring WordPress..."
+sleep 3
 
-echo "[WP config] Waiting for MariaDB..."
-while ! mariadb -h${DB_HOST} -u${WP_DB_USER} -p${WP_DB_PASS} ${WP_DB_NAME} &>/dev/null;
-do
-    sleep 3
-done
-echo "[WP config] MariaDB accessible."
+    echo "\n==============================="
+    echo "=== Wordpress configuration ==="
+    echo "===============================\n"
 
-WP_PATH=/var/www/html/wordpress
-
-if [ -f ${WP_PATH}/wp-config.php ]
+if [ -f "/var/www/html/wp-config.php" ]
 then
-	echo "[WP config] WordPress already configured."
+    # bypass the 'filesystem not reachable' after reboot without volume removal
+    usermod -u 33 www && groupmod -g 33 www
+    chown -R www:www /var/www/html/
+    echo "==> wordpress is already installed and configured\n"
 else
-	echo "[WP config] Setting up WordPress..."
-	echo "[WP config] Updating WP-CLI..."
-	wp-cli.phar cli update --yes --allow-root
-	echo "[WP config] Downloading WordPress..."
-	wp-cli.phar core download --allow-root
-	echo "[WP config] Creating wp-config.php..."
-	wp-cli.phar config create --dbname=${WP_DB_NAME} --dbuser=${WP_DB_USER} --dbpass=${WP_DB_PASS} --dbhost=${DB_HOST} --path=${WP_PATH} --allow-root
-	echo "[WP config] Installing WordPress core..."
-	wp-cli.phar core install --url=${NGINX_HOST}/wordpress --title=${WP_TITLE} --admin_user=${WP_ADMIN_USER} --admin_password=${WP_ADMIN_PASS} --admin_email=${WP_ADMIN_EMAIL} --path=${WP_PATH} --allow-root
-	echo "[WP config] Creating WordPress default user..."
-	wp-cli.phar user create $WP_USER ${WP_USER_EMAIL} --user_pass=${WP_USER_PASS} --role=subscriber --display_name=${WP_USER} --porcelain --path=${WP_PATH} --allow-root
-	echo "[WP config] Installing WordPress theme..."
-	wp-cli.phar theme install bravada --path=${WP_PATH} --activate --allow-root
-	wp-cli.phar theme status bravada --allow-root
+    # download the wordpress core
+    wp core download --allow-root
+
+    # configure the wordpress DB
+    wp core config  --allow-root \
+                    --dbname=$SQL_DATABASE \
+                    --dbuser=$SQL_USER \
+                    --dbpass=$SQL_PASSWORD \
+                    --dbhost=$SQL_HOST
+
+    # install wordpress
+    wp core install --allow-root\
+                    --url=$DOMAIN\
+                    --title=$WP_TITLE\
+                    --admin_user=$WP_ADMIN\
+                    --admin_password=$WP_ADMIN_PASSWORD\
+                    --admin_email=$WP_ADMIN_EMAIL
+
+    # create a non-admin user
+    wp user create $WP_USER $WP_USER_EMAIL\
+                    --role=author\
+                    --user_pass=$WP_USER_PASSWORD\
+                    --allow-root
+
+    # ensure that the web server has the necessary permissions to read and write to those files
+    chown -R www-data:www-data /var/www/html/wp-content
+    chown -R www-data:www-data /var/www/html
 fi
 
-echo "[WP config] Starting WordPress fastCGI on port 9000."
-exec /usr/sbin/php-fpm81 -F -R
+if [ "$(wp config get WP_CACHE --type=constant --allow-root)" = "true" ]
+then
+    echo "==> Redis is already configured\n"
+
+else
+    echo "\n==========================="
+    echo "=== Redis configuration ==="
+    echo "===========================\n"
+
+    # configure redis settings in wordpress
+    wp config set WP_CACHE true --add --allow-root
+    wp config set WP_CACHE_KEY_SALT maaliber.42.fr --allow-root
+    wp config set WP_REDIS_HOST redis --allow-root
+
+    # install and activate the redis cache plugin
+    wp plugin install redis-cache --activate --allow-root
+    wp plugin update --all --allow-root
+    wp redis enable --allow-root
+
+    # ensure that the web server has the necessary permissions to read and write to those files (otherwise 'filesystem not reachable' warning in wordpress plugin page)
+    chown -R www-data:www-data /var/www/html/wp-content/plugins/redis-cache
+fi
+
+# run the php process manager in foreground mode
+exec /usr/sbin/php-fpm7.4 -F
